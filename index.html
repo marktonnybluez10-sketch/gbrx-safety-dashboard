@@ -565,24 +565,32 @@
       }
     };
 
-    function checkSession() {
+   function checkSession() {
       const session = getCurrentSession();
       const overlay = document.getElementById('authGateOverlay');
       const adminBtn = document.getElementById('btnOpenAdmin');
 
       if (session) {
-        overlay.classList.add('hidden');
-        if (session.role === 'admin') {
-          adminBtn.classList.remove('hidden');
-        } else {
-          adminBtn.classList.add('hidden');
+        if (overlay) overlay.classList.add('hidden');
+        if (adminBtn) {
+          if (session.role === 'admin') adminBtn.classList.remove('hidden');
+          else adminBtn.classList.add('hidden');
         }
+
+        // Despierta Chart.js y calcula el modelo predictivo automáticamente
+        setTimeout(() => {
+          window.dispatchEvent(new Event('resize'));
+          if (typeof handleFilterChange === 'function') {
+            handleFilterChange();
+          } else if (typeof updateDashboard === 'function') {
+            updateDashboard();
+          }
+        }, 150);
       } else {
-        overlay.classList.remove('hidden');
-        adminBtn.classList.add('hidden');
+        if (overlay) overlay.classList.remove('hidden');
+        if (adminBtn) adminBtn.classList.add('hidden');
       }
     }
-
     document.getElementById('loginForm').addEventListener('submit', (e) => {
       e.preventDefault();
       const userIn = document.getElementById('loginUsername').value.trim();
