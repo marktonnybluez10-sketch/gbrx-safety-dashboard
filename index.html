@@ -1,0 +1,1096 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard Integral de Seguridad Industrial - GBRX</title>
+  
+  <!-- Tailwind CSS, Chart.js, FontAwesome -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+
+  <style>
+    body { font-family: 'Inter', sans-serif; }
+    .custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
+    .custom-scrollbar::-webkit-scrollbar-track { background: #f1f5f9; }
+    .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+    .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+    
+    /* Multiselect styling */
+    .ms-dropdown {
+      display: none;
+      position: absolute;
+      top: 100%;
+      left: 0;
+      right: 0;
+      z-index: 50;
+      background: white;
+      border: 1px solid #cbd5e1;
+      border-radius: 0.5rem;
+      box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+      max-height: 270px;
+      margin-top: 4px;
+    }
+    .ms-dropdown.open {
+      display: flex;
+      flex-direction: column;
+    }
+    .ms-btn-active {
+      border-color: #2563eb !important;
+      background-color: #eff6ff !important;
+      color: #1d4ed8 !important;
+      font-weight: 600;
+    }
+    .pill-tag {
+      display: inline-flex;
+      align-items: center;
+      background-color: #dbeafe;
+      color: #1e40af;
+      font-size: 10px;
+      font-weight: 600;
+      padding: 1px 6px;
+      border-radius: 9999px;
+      margin-right: 3px;
+    }
+
+    /* REGLAS DE IMPRESIÓN Y EXPORTACIÓN A PDF */
+    @media print {
+      @page {
+        size: landscape;
+        margin: 8mm;
+      }
+      body {
+        background-color: #ffffff !important;
+        color: #0f172a !important;
+        font-size: 9px !important;
+      }
+      header, footer, #filtersContainer, .no-print, button, input, #authGateOverlay, #adminModal {
+        display: none !important;
+      }
+      .print-header {
+        display: block !important;
+        margin-bottom: 12px;
+        border-bottom: 2px solid #0f172a;
+        padding-bottom: 8px;
+      }
+      .table-container {
+        max-height: none !important;
+        overflow: visible !important;
+      }
+      table {
+        width: 100% !important;
+        border-collapse: collapse !important;
+        font-size: 8.5px !important;
+      }
+      thead {
+        display: table-header-group !important;
+      }
+      tr {
+        page-break-inside: avoid !important;
+        break-inside: avoid !important;
+      }
+      th, td {
+        padding: 4px 5px !important;
+        border: 1px solid #cbd5e1 !important;
+        word-break: break-word !important;
+      }
+      .card-predictive, .card-kpi, .card-chart {
+        page-break-inside: avoid !important;
+        break-inside: avoid !important;
+      }
+    }
+    .print-header { display: none; }
+  </style>
+</head>
+<body class="bg-slate-100 text-slate-800 antialiased min-h-screen">
+
+  <!-- ================= PANTALLA DE ACCESO (GATEKEEPER) ================= -->
+  <div id="authGateOverlay" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950 p-4">
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl p-6 sm:p-8 w-full max-w-md text-white">
+      <div class="text-center mb-6">
+        <div class="w-14 h-14 mx-auto rounded-xl bg-gradient-to-tr from-amber-500 to-red-600 flex items-center justify-center text-white text-2xl font-black shadow-lg mb-3">
+          <i class="fa-solid fa-shield-halved"></i>
+        </div>
+        <h2 class="text-xl font-bold tracking-tight">Acceso Seguro GBRX</h2>
+        <p class="text-xs text-slate-400 mt-1">Dashboard Integral de Seguridad Industrial</p>
+      </div>
+
+      <form id="loginForm" class="space-y-4">
+        <div>
+          <label class="block text-xs font-semibold text-slate-300 mb-1">Usuario</label>
+          <div class="relative">
+            <i class="fa-solid fa-user absolute left-3 top-3 text-slate-500 text-sm"></i>
+            <input type="text" id="loginUsername" required autocomplete="username"
+              class="w-full bg-slate-800 border border-slate-700 rounded-lg pl-9 pr-3 py-2 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="Ingresa tu usuario">
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-300 mb-1">Contraseña</label>
+          <div class="relative">
+            <i class="fa-solid fa-lock absolute left-3 top-3 text-slate-500 text-sm"></i>
+            <input type="password" id="loginPassword" required autocomplete="current-password"
+              class="w-full bg-slate-800 border border-slate-700 rounded-lg pl-9 pr-3 py-2 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="••••••••">
+          </div>
+        </div>
+
+        <div id="loginErrorMsg" class="hidden text-xs text-red-400 bg-red-950/50 border border-red-800/50 p-2.5 rounded-lg flex items-center gap-2">
+          <i class="fa-solid fa-triangle-exclamation"></i>
+          <span>Usuario o contraseña incorrectos.</span>
+        </div>
+
+        <button type="submit" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-semibold py-2.5 rounded-lg text-sm transition shadow-lg flex items-center justify-center gap-2">
+          <i class="fa-solid fa-arrow-right-to-bracket"></i> Iniciar Sesión
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- ================= MODAL ADMINISTRADOR DE USUARIOS ================= -->
+  <div id="adminModal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl p-6 w-full max-w-2xl text-white max-h-[90vh] flex flex-col">
+      <div class="flex items-center justify-between border-b border-slate-800 pb-3 mb-4">
+        <div class="flex items-center gap-2">
+          <i class="fa-solid fa-users-gear text-amber-400 text-lg"></i>
+          <h3 class="text-base font-bold">Gestor de Accesos y Usuarios</h3>
+        </div>
+        <button id="btnCloseAdminModal" class="text-slate-400 hover:text-white transition">
+          <i class="fa-solid fa-xmark text-lg"></i>
+        </button>
+      </div>
+
+      <form id="addUserForm" class="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-5 p-3.5 bg-slate-800/60 rounded-xl border border-slate-700">
+        <div>
+          <label class="block text-[11px] font-semibold text-slate-300 mb-1">Nombre / Usuario</label>
+          <input type="text" id="newUsername" required placeholder="Ej. supervisor1"
+            class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:ring-1 focus:ring-blue-500">
+        </div>
+        <div>
+          <label class="block text-[11px] font-semibold text-slate-300 mb-1">Contraseña</label>
+          <input type="password" id="newPassword" required placeholder="Contraseña segura"
+            class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:ring-1 focus:ring-blue-500">
+        </div>
+        <div class="flex flex-col justify-end">
+          <button type="submit" class="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold py-2 px-3 rounded-lg transition flex items-center justify-center gap-1.5 shadow">
+            <i class="fa-solid fa-user-plus"></i> Asignar Acceso
+          </button>
+        </div>
+      </form>
+
+      <div class="flex-1 overflow-y-auto custom-scrollbar">
+        <table class="w-full text-left text-xs">
+          <thead class="text-slate-400 border-b border-slate-800 uppercase text-[10px]">
+            <tr>
+              <th class="py-2 px-3">Usuario</th>
+              <th class="py-2 px-3">Rol</th>
+              <th class="py-2 px-3 text-right">Acciones</th>
+            </tr>
+          </thead>
+          <tbody id="userListBody" class="divide-y divide-slate-800">
+          </tbody>
+        </table>
+      </div>
+
+      <div class="border-t border-slate-800 pt-3 mt-4 flex justify-between items-center text-[11px] text-slate-400">
+        <span>Los accesos quedan registrados para este navegador.</span>
+        <button id="btnExportUsers" class="hover:text-amber-400 transition flex items-center gap-1">
+          <i class="fa-solid fa-download"></i> Respaldar Usuarios (JSON)
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Barra Superior de Navegación -->
+  <header class="bg-slate-900 border-b border-slate-800 text-white sticky top-0 z-40 shadow-md">
+    <div class="max-w-[1750px] mx-auto px-4 py-3 flex flex-col md:flex-row justify-between items-center gap-3">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-lg bg-gradient-to-tr from-amber-500 to-red-600 flex items-center justify-center text-white text-xl font-black shadow-lg">
+          <i class="fa-solid fa-shield-halved"></i>
+        </div>
+        <div>
+          <div class="flex items-center gap-2">
+            <h1 class="text-lg md:text-xl font-extrabold tracking-tight text-white">GBRX INDUSTRIAL SAFETY INTELLIGENCE</h1>
+            <span class="bg-indigo-500/20 text-indigo-300 text-[11px] font-semibold px-2.5 py-0.5 rounded-full border border-indigo-500/30 flex items-center gap-1">
+              <span class="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-pulse"></span> 15 FILTROS MÚLTIPLES DEPENDIENTES
+            </span>
+          </div>
+          <p class="text-xs text-slate-400">Analítica Predictiva Multianual y Gestión Proactiva de Accidentabilidad (FY2022 - FY2026)</p>
+        </div>
+      </div>
+
+      <div class="flex flex-wrap items-center gap-2.5">
+        <div class="bg-slate-800/90 text-xs px-3 py-1.5 rounded-lg border border-slate-700 flex items-center gap-2 shadow-sm">
+          <i class="fa-solid fa-user-shield text-amber-400"></i>
+          <span>Elaborado por: <strong class="text-white">Marco Garrido - Ingeniero de Seguridad Industrial</strong></span>
+        </div>
+        <div class="bg-slate-800/90 text-xs px-3 py-1.5 rounded-lg border border-slate-700 flex items-center gap-2">
+          <i class="fa-regular fa-calendar-check text-amber-400"></i>
+          <span>Ciclo Fiscal: <strong class="text-white">Sep - Ago</strong></span>
+        </div>
+        <button id="btnResetFilters" class="bg-slate-800 hover:bg-slate-700 active:bg-slate-900 text-slate-200 text-xs font-semibold px-3 py-2 rounded-lg border border-slate-700 transition flex items-center gap-1.5">
+          <i class="fa-solid fa-rotate-left"></i> Restablecer Filtros
+        </button>
+        <button onclick="window.print()" class="bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold px-3 py-2 rounded-lg shadow transition flex items-center gap-1.5">
+          <i class="fa-solid fa-print"></i> Exportar / Imprimir
+        </button>
+
+        <button id="btnOpenAdmin" class="hidden bg-amber-600 hover:bg-amber-500 text-white text-xs font-semibold px-3 py-2 rounded-lg shadow transition flex items-center gap-1.5">
+          <i class="fa-solid fa-user-gear"></i> Gestionar Usuarios
+        </button>
+        <button id="btnLogout" class="bg-rose-700 hover:bg-rose-600 text-white text-xs font-semibold px-3 py-2 rounded-lg shadow transition flex items-center gap-1.5">
+          <i class="fa-solid fa-right-from-bracket"></i> Salir
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Encabezado exclusivo para reporte impreso/PDF -->
+  <div class="print-header">
+    <div class="flex justify-between items-center">
+      <div>
+        <h1 class="text-lg font-bold">GBRX INDUSTRIAL SAFETY INTELLIGENCE - REPORTE DE ACCIDENTABILIDAD</h1>
+        <p class="text-xs text-slate-600">Gestión de Accidentabilidad Multianual y Pronóstico de Seguridad (FY2022 - FY2026)</p>
+      </div>
+      <div class="text-right text-xs">
+        <p><strong>Elaborado por:</strong> Marco Garrido - Ingeniero de Seguridad Industrial</p>
+        <p id="printDate"></p>
+      </div>
+    </div>
+  </div>
+
+  <main class="max-w-[1750px] mx-auto px-4 py-5 space-y-5">
+
+    <!-- MOTOR PREDICTIVO INTELIGENTE -->
+    <section class="card-predictive bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 rounded-2xl p-5 text-white shadow-xl border border-indigo-500/30">
+      <div class="flex flex-col md:flex-row md:items-center justify-between pb-3 border-b border-indigo-500/20 gap-2 mb-4">
+        <div>
+          <span class="text-[11px] font-bold uppercase tracking-wider text-amber-400 flex items-center gap-1.5">
+            <i class="fa-solid fa-brain"></i> Algoritmo Predictivo de Riesgo Condicionado a Selección Múltiple
+          </span>
+          <h2 class="text-lg font-bold text-white mt-0.5">Pronóstico Estimado del Próximo Accidente</h2>
+        </div>
+        <div class="flex items-center gap-2 no-print">
+          <span class="text-xs text-slate-300">Modo de Selección:</span>
+          <span id="confidenceTag" class="text-xs bg-amber-500/20 text-amber-300 font-bold px-2.5 py-1 rounded-md border border-amber-500/30">MULTISELECCIÓN DINÁMICA</span>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div class="bg-slate-800/80 rounded-xl p-4 border border-slate-700 relative overflow-hidden group hover:border-amber-500/50 transition">
+          <div class="absolute -right-3 -bottom-3 text-slate-700/40 text-6xl group-hover:text-amber-500/20 transition">
+            <i class="fa-solid fa-industry"></i>
+          </div>
+          <span class="text-[11px] font-bold text-amber-400 uppercase tracking-wider">Área Crítica Probable</span>
+          <div id="predArea" class="text-2xl font-black text-white mt-1">-</div>
+          <p id="predAreaSub" class="text-xs text-slate-300 mt-1 flex items-center gap-1">
+            <i class="fa-solid fa-chart-simple text-amber-400"></i> Frecuencia histórica: -
+          </p>
+        </div>
+
+        <div class="bg-slate-800/80 rounded-xl p-4 border border-slate-700 relative overflow-hidden group hover:border-red-500/50 transition">
+          <div class="absolute -right-3 -bottom-3 text-slate-700/40 text-6xl group-hover:text-red-500/20 transition">
+            <i class="fa-solid fa-hand-dots"></i>
+          </div>
+          <span class="text-[11px] font-bold text-red-400 uppercase tracking-wider">Parte Anatómica Vulnerable</span>
+          <div id="predCuerpo" class="text-2xl font-black text-white mt-1">-</div>
+          <p id="predCuerpoSub" class="text-xs text-slate-300 mt-1 flex items-center gap-1">
+            <i class="fa-solid fa-crosshairs text-red-400"></i> Concentración: -
+          </p>
+        </div>
+
+        <div class="bg-slate-800/80 rounded-xl p-4 border border-slate-700 relative overflow-hidden group hover:border-blue-500/50 transition">
+          <div class="absolute -right-3 -bottom-3 text-slate-700/40 text-6xl group-hover:text-blue-500/20 transition">
+            <i class="fa-solid fa-triangle-exclamation"></i>
+          </div>
+          <span class="text-[11px] font-bold text-sky-400 uppercase tracking-wider">Clasificación Estimada</span>
+          <div id="predClasif" class="text-2xl font-black text-white mt-1">-</div>
+          <p id="predClasifSub" class="text-xs text-slate-300 mt-1 flex items-center gap-1">
+            <i class="fa-solid fa-tag text-sky-400"></i> Probabilidad estimada: -
+          </p>
+        </div>
+
+        <div class="bg-slate-800/80 rounded-xl p-4 border border-slate-700 relative overflow-hidden group hover:border-emerald-500/50 transition">
+          <div class="absolute -right-3 -bottom-3 text-slate-700/40 text-6xl group-hover:text-emerald-500/20 transition">
+            <i class="fa-regular fa-clock"></i>
+          </div>
+          <span class="text-[11px] font-bold text-emerald-400 uppercase tracking-wider">Ventana y Mecanismo Crítico</span>
+          <div id="predTiempo" class="text-xl font-black text-white mt-1">-</div>
+          <p id="predMecanismo" class="text-xs text-slate-300 mt-1 flex items-center gap-1">
+            <i class="fa-solid fa-wrench text-emerald-400"></i> Mecanismo: -
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- TARJETAS KPI RESUMEN -->
+    <div class="card-kpi grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+      <div class="bg-white p-3.5 rounded-xl border border-slate-200 shadow-sm">
+        <span class="text-[11px] font-bold uppercase text-slate-500 tracking-wider">Total Filtrados</span>
+        <div id="kpiTotal" class="text-2xl font-black text-slate-800 mt-1">637</div>
+        <span id="kpiTotalSub" class="text-[10px] text-slate-500">100% de la muestra</span>
+      </div>
+      <div class="bg-white p-3.5 rounded-xl border border-slate-200 shadow-sm">
+        <span class="text-[11px] font-bold uppercase text-amber-600 tracking-wider">Clasificación A</span>
+        <div id="kpiClasifA" class="text-2xl font-black text-amber-600 mt-1">517</div>
+        <span id="kpiClasifASub" class="text-[10px] text-slate-500">81.2% del total</span>
+      </div>
+      <div class="bg-white p-3.5 rounded-xl border border-slate-200 shadow-sm">
+        <span class="text-[11px] font-bold uppercase text-red-600 tracking-wider">Clasificación B1 / D</span>
+        <div id="kpiClasifB" class="text-2xl font-black text-red-600 mt-1">102</div>
+        <span id="kpiClasifBSub" class="text-[10px] text-slate-500">Eventos de mayor impacto</span>
+      </div>
+      <div class="bg-white p-3.5 rounded-xl border border-slate-200 shadow-sm">
+        <span class="text-[11px] font-bold uppercase text-indigo-600 tracking-wider">1er Turno</span>
+        <div id="kpiTurno1" class="text-2xl font-black text-indigo-600 mt-1">359</div>
+        <span id="kpiTurno1Sub" class="text-[10px] text-slate-500">Turno matutino</span>
+      </div>
+      <div class="bg-white p-3.5 rounded-xl border border-slate-200 shadow-sm">
+        <span class="text-[11px] font-bold uppercase text-emerald-600 tracking-wider">Edad Promedio</span>
+        <div id="kpiEdad" class="text-2xl font-black text-emerald-600 mt-1">31.1 años</div>
+        <span class="text-[10px] text-slate-500">De colaboradores filtrados</span>
+      </div>
+      <div class="bg-white p-3.5 rounded-xl border border-slate-200 shadow-sm">
+        <span class="text-[11px] font-bold uppercase text-purple-600 tracking-wider">Mano / Dedos</span>
+        <div id="kpiManos" class="text-2xl font-black text-purple-600 mt-1">316</div>
+        <span id="kpiManosSub" class="text-[10px] text-slate-500">Extremidad superior</span>
+      </div>
+    </div>
+
+    <!-- PANEL DE CONTROL: 15 FILTROS MULTI-SELECCIÓN DEPENDIENTES -->
+    <section class="no-print bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-200 pb-3">
+        <div class="flex items-center gap-2">
+          <div class="w-7 h-7 rounded-md bg-blue-50 text-blue-600 flex items-center justify-center text-sm font-bold">
+            <i class="fa-solid fa-list-check"></i>
+          </div>
+          <div>
+            <h3 class="text-sm font-bold text-slate-800 uppercase tracking-wide">Filtros Avanzados Multidimensionales (15 Variables en Cascada)</h3>
+            <p class="text-xs text-slate-400">Permite seleccionar uno o varios valores simultáneamente por cada lista. Todas las demás opciones se recalculan mostrando solo sus cruces reales.</p>
+          </div>
+        </div>
+        <div class="flex items-center gap-2">
+          <span id="filterCountBadge" class="bg-blue-50 text-blue-700 text-xs font-bold px-3 py-1 rounded-full border border-blue-200">
+            637 accidentes filtrados
+          </span>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 text-xs" id="filtersContainer">
+      </div>
+    </section>
+
+    <!-- GRÁFICAS DE TENDENCIA Y PARETO -->
+    <div class="card-chart grid grid-cols-1 lg:grid-cols-2 gap-5">
+      <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between">
+        <div class="flex items-center justify-between mb-3">
+          <div>
+            <h4 class="text-sm font-bold text-slate-800 uppercase tracking-wider">Evolución Histórica por Año Fiscal (FY)</h4>
+            <p class="text-xs text-slate-400">Incidentes según los filtros activos</p>
+          </div>
+          <span class="text-xs bg-blue-50 text-blue-600 font-semibold px-2 py-1 rounded no-print">Tendencia FY</span>
+        </div>
+        <div class="relative h-64 w-full">
+          <canvas id="chartFY"></canvas>
+        </div>
+      </div>
+
+      <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between">
+        <div class="flex items-center justify-between mb-3">
+          <div>
+            <h4 class="text-sm font-bold text-slate-800 uppercase tracking-wider">Top Áreas con Mayor Ocurrencia</h4>
+            <p class="text-xs text-slate-400">Distribución de accidentes por línea o departamento</p>
+          </div>
+          <span class="text-xs bg-red-50 text-red-600 font-semibold px-2 py-1 rounded no-print">Pareto Áreas</span>
+        </div>
+        <div class="relative h-64 w-full">
+          <canvas id="chartAreas"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- GRÁFICAS ANATÓMICA, AGENTES Y TEMPORAL -->
+    <div class="card-chart grid grid-cols-1 md:grid-cols-3 gap-5">
+      <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+        <div class="flex items-center justify-between mb-2">
+          <h4 class="text-sm font-bold text-slate-800 uppercase tracking-wider">Partes del Cuerpo Afectadas</h4>
+          <i class="fa-solid fa-person text-slate-400"></i>
+        </div>
+        <p class="text-xs text-slate-400 mb-3">Concentración por segmento anatómico</p>
+        <div class="relative h-60 w-full">
+          <canvas id="chartCuerpo"></canvas>
+        </div>
+      </div>
+
+      <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+        <div class="flex items-center justify-between mb-2">
+          <h4 class="text-sm font-bold text-slate-800 uppercase tracking-wider">Agente / Objeto Involucrado</h4>
+          <i class="fa-solid fa-screwdriver-wrench text-slate-400"></i>
+        </div>
+        <p class="text-xs text-slate-400 mb-3">Clasificado por análisis de descripción textual</p>
+        <div class="relative h-60 w-full">
+          <canvas id="chartAgentes"></canvas>
+        </div>
+      </div>
+
+      <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+        <div class="flex items-center justify-between mb-2">
+          <h4 class="text-sm font-bold text-slate-800 uppercase tracking-wider">Ocurrencia por Día de Semana</h4>
+          <i class="fa-regular fa-calendar-days text-slate-400"></i>
+        </div>
+        <p class="text-xs text-slate-400 mb-3">Días de mayor propensión a incidentes</p>
+        <div class="relative h-60 w-full">
+          <canvas id="chartDias"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- TABLA DE REGISTROS CON BUSCADOR Y DETALLE -->
+    <section class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+      <div class="p-4 border-b border-slate-200 flex flex-col md:flex-row justify-between items-center gap-3 bg-slate-50/70">
+        <div>
+          <h4 class="text-sm font-bold text-slate-800 uppercase tracking-wide">Bitácora de Eventos Registrados</h4>
+          <p id="tableRowsInfo" class="text-xs text-slate-500">Muestra los eventos que coinciden con los filtros</p>
+        </div>
+        <div class="flex flex-wrap items-center gap-2.5 w-full md:w-auto no-print">
+          <div class="flex items-center gap-1.5 text-xs text-slate-600">
+            <span>Mostrar en pantalla:</span>
+            <select id="selectPageLimit" class="bg-white border border-slate-300 rounded p-1 text-xs">
+              <option value="100">100 filas</option>
+              <option value="250">250 filas</option>
+              <option value="500">500 filas</option>
+              <option value="all" selected>Todos los registros</option>
+            </select>
+          </div>
+          <div class="relative w-full md:w-64">
+            <i class="fa-solid fa-magnifying-glass absolute left-3 top-2.5 text-slate-400 text-xs"></i>
+            <input type="text" id="tableSearch" placeholder="Buscar por palabra, descripción o puesto..." class="w-full text-xs pl-8 pr-3 py-1.5 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none">
+          </div>
+        </div>
+      </div>
+
+      <div class="table-container overflow-x-auto max-h-[550px] custom-scrollbar">
+        <table class="w-full text-left text-xs text-slate-600">
+          <thead class="bg-slate-100 text-slate-700 font-bold uppercase text-[10px] tracking-wider sticky top-0 z-10 border-b border-slate-200">
+            <tr>
+              <th class="p-2.5 whitespace-nowrap">FY / Fecha</th>
+              <th class="p-2.5 whitespace-nowrap">Turno / Horario</th>
+              <th class="p-2.5 whitespace-nowrap">Área / Proyecto</th>
+              <th class="p-2.5 text-center">Clasif</th>
+              <th class="p-2.5">Parte Cuerpo</th>
+              <th class="p-2.5">Mecanismo</th>
+              <th class="p-2.5">Factor / Agente</th>
+              <th class="p-2.5 whitespace-nowrap">Ing. Seguridad</th>
+              <th class="p-2.5 whitespace-nowrap">Supervisor / Gerente</th>
+              <th class="p-2.5 min-w-[240px]">Descripción del Accidente</th>
+            </tr>
+          </thead>
+          <tbody id="eventsTableBody" class="divide-y divide-slate-100 font-normal">
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- PIE DE PÁGINA -->
+  <footer class="max-w-[1750px] mx-auto px-4 py-6 text-center text-xs text-slate-500 border-t border-slate-200 mt-8 space-y-1">
+    <p class="font-medium text-slate-700"><i class="fa-solid fa-user-shield text-amber-600 mr-1.5"></i> Elaborado por: <strong class="text-slate-800 font-bold">Marco Garrido - Ingeniero de Seguridad Industrial</strong></p>
+    <p class="text-slate-400">Sistema de Seguridad e Higiene Industrial &bull; Base de Datos Integrada GBRX (637 Registros) &bull; Módulo Autónomo para Toma de Decisiones y Prevención de Accidentes</p>
+  </footer>
+
+  <!-- SCRIPT DE AUTENTICACIÓN Y GESTOR DE USUARIOS -->
+  <script>
+    const STORAGE_USERS_KEY = 'gbrx_auth_users';
+    const STORAGE_SESSION_KEY = 'gbrx_active_session';
+
+    const defaultAdmin = {
+      username: "admin",
+      password: "Admin2026*",
+      role: "admin"
+    };
+
+    function getStoredUsers() {
+      const raw = localStorage.getItem(STORAGE_USERS_KEY);
+      if (!raw) {
+        const initialList = [defaultAdmin];
+        localStorage.setItem(STORAGE_USERS_KEY, JSON.stringify(initialList));
+        return initialList;
+      }
+      return JSON.parse(raw);
+    }
+
+    function saveStoredUsers(users) {
+      localStorage.setItem(STORAGE_USERS_KEY, JSON.stringify(users));
+    }
+
+    function getCurrentSession() {
+      return JSON.parse(sessionStorage.getItem(STORAGE_SESSION_KEY));
+    }
+
+    function renderUserTable() {
+      const users = getStoredUsers();
+      const tbody = document.getElementById('userListBody');
+      tbody.innerHTML = '';
+
+      users.forEach(u => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td class="py-2.5 px-3 font-semibold text-slate-200">${u.username}</td>
+          <td class="py-2.5 px-3">
+            <span class="px-2 py-0.5 rounded text-[10px] font-bold ${u.role === 'admin' ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' : 'bg-slate-700 text-slate-300'}">
+              ${u.role.toUpperCase()}
+            </span>
+          </td>
+          <td class="py-2.5 px-3 text-right">
+            ${u.username !== 'admin' ? `
+              <button onclick="deleteUser('${u.username}')" class="text-rose-400 hover:text-rose-300 transition text-xs">
+                <i class="fa-solid fa-trash-can mr-1"></i> Eliminar
+              </button>
+            ` : '<span class="text-slate-500 text-[11px]">Principal</span>'}
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    window.deleteUser = function(username) {
+      if (confirm(`¿Deseas revocar el acceso a "${username}"?`)) {
+        let users = getStoredUsers().filter(u => u.username !== username);
+        saveStoredUsers(users);
+        renderUserTable();
+      }
+    };
+
+    function checkSession() {
+      const session = getCurrentSession();
+      const overlay = document.getElementById('authGateOverlay');
+      const adminBtn = document.getElementById('btnOpenAdmin');
+
+      if (session) {
+        overlay.classList.add('hidden');
+        if (session.role === 'admin') {
+          adminBtn.classList.remove('hidden');
+        } else {
+          adminBtn.classList.add('hidden');
+        }
+      } else {
+        overlay.classList.remove('hidden');
+        adminBtn.classList.add('hidden');
+      }
+    }
+
+    document.getElementById('loginForm').addEventListener('submit', (e) => {
+      e.preventDefault();
+      const userIn = document.getElementById('loginUsername').value.trim();
+      const passIn = document.getElementById('loginPassword').value;
+      const errorMsg = document.getElementById('loginErrorMsg');
+
+      const users = getStoredUsers();
+      const match = users.find(u => u.username.toLowerCase() === userIn.toLowerCase() && u.password === passIn);
+
+      if (match) {
+        sessionStorage.setItem(STORAGE_SESSION_KEY, JSON.stringify({ username: match.username, role: match.role }));
+        errorMsg.classList.add('hidden');
+        checkSession();
+      } else {
+        errorMsg.classList.remove('hidden');
+      }
+    });
+
+    document.getElementById('btnLogout').addEventListener('click', () => {
+      sessionStorage.removeItem(STORAGE_SESSION_KEY);
+      location.reload();
+    });
+
+    const adminModal = document.getElementById('adminModal');
+    document.getElementById('btnOpenAdmin').addEventListener('click', () => {
+      renderUserTable();
+      adminModal.classList.remove('hidden');
+    });
+    document.getElementById('btnCloseAdminModal').addEventListener('click', () => {
+      adminModal.classList.add('hidden');
+    });
+
+    document.getElementById('addUserForm').addEventListener('submit', (e) => {
+      e.preventDefault();
+      const uName = document.getElementById('newUsername').value.trim();
+      const pWord = document.getElementById('newPassword').value.trim();
+
+      if (!uName || !pWord) return;
+
+      const users = getStoredUsers();
+      if (users.some(u => u.username.toLowerCase() === uName.toLowerCase())) {
+        alert('Ese nombre de usuario ya existe.');
+        return;
+      }
+
+      users.push({ username: uName, password: pWord, role: 'viewer' });
+      saveStoredUsers(users);
+      renderUserTable();
+      document.getElementById('addUserForm').reset();
+    });
+
+    document.getElementById('btnExportUsers').addEventListener('click', () => {
+      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(getStoredUsers(), null, 2));
+      const dlAnchor = document.createElement('a');
+      dlAnchor.setAttribute("href", dataStr);
+      dlAnchor.setAttribute("download", "usuarios_gbrx_seguridad.json");
+      dlAnchor.click();
+    });
+
+    checkSession();
+  </script>
+
+  <!-- LÓGICA, GRÁFICOS Y 15 FILTROS DEPENDIENTES DEL DASHBOARD -->
+  <script>
+    // Se inserta la fecha de impresión
+    document.getElementById('printDate').innerText = new Date().toLocaleDateString('es-MX', { year: 'numeric', month: 'long', day: 'numeric' });
+
+    // Definición de las 15 dimensiones de filtrado
+    const filterDefs = [
+      { key: 'fy', label: 'Año Fiscal (FY)' },
+      { key: 'mes', label: 'Mes' },
+      { key: 'dia', label: 'Día de la Semana' },
+      { key: 'rangoHora', label: 'Rango Horario' },
+      { key: 'turno', label: 'Turno' },
+      { key: 'area', label: 'Área / Taller' },
+      { key: 'posicion', label: 'Posición / Estación' },
+      { key: 'proyecto', label: 'Proyecto / Carro' },
+      { key: 'clasif', label: 'Clasificación' },
+      { key: 'cuerpo', label: 'Parte del Cuerpo' },
+      { key: 'mecanismo', label: 'Mecanismo de Lesión' },
+      { key: 'lesion', label: 'Tipo de Lesión' },
+      { key: 'agente', label: 'Agente / Factor' },
+      { key: 'ingSeguridad', label: 'Ing. de Seguridad' },
+      { key: 'supervisor', label: 'Supervisor / Lider' }
+    ];
+
+    // Estado activo de filtros seleccionados (arrays)
+    const selectedFilters = {};
+    filterDefs.forEach(f => selectedFilters[f.key] = []);
+
+    // Instancias de Gráficas Chart.js
+    let chartFYInstance = null;
+    let chartAreasInstance = null;
+    let chartCuerpoInstance = null;
+    let chartAgentesInstance = null;
+    let chartDiasInstance = null;
+
+    // Inicializar Contenedor de Filtros con Multiselección
+    function initFilters() {
+      const container = document.getElementById('filtersContainer');
+      container.innerHTML = '';
+
+      filterDefs.forEach(f => {
+        const div = document.createElement('div');
+        div.className = 'relative flex flex-col';
+        div.innerHTML = `
+          <label class="font-bold text-slate-700 mb-1 flex items-center justify-between">
+            <span class="truncate">${f.label}</span>
+            <span id="badge_${f.key}" class="hidden pill-tag">0</span>
+          </label>
+          <button type="button" id="btn_${f.key}" onclick="toggleDropdown('${f.key}')" 
+            class="w-full text-left bg-slate-50 border border-slate-300 text-slate-700 py-1.5 px-2.5 rounded-lg text-xs flex justify-between items-center transition shadow-sm hover:border-slate-400">
+            <span id="txt_${f.key}" class="truncate font-medium text-slate-600">Todos</span>
+            <i class="fa-solid fa-chevron-down text-[10px] text-slate-400"></i>
+          </button>
+          <div id="dd_${f.key}" class="ms-dropdown p-2 custom-scrollbar overflow-y-auto">
+            <div class="flex items-center justify-between pb-1.5 mb-1.5 border-b border-slate-200">
+              <span class="text-[10px] font-bold text-slate-400 uppercase">Selección múltiple</span>
+              <button onclick="clearSingleFilter('${f.key}')" class="text-[10px] text-blue-600 font-bold hover:underline">Limpiar</button>
+            </div>
+            <div id="opts_${f.key}" class="space-y-1"></div>
+          </div>
+        `;
+        container.appendChild(div);
+      });
+
+      // Cerrar desplegables al hacer clic fuera
+      document.addEventListener('click', (e) => {
+        if (!e.target.closest('.ms-dropdown') && !e.target.closest('button[id^="btn_"]')) {
+          closeAllDropdowns();
+        }
+      });
+    }
+
+    function toggleDropdown(key) {
+      const dd = document.getElementById(`dd_${key}`);
+      const isOpen = dd.classList.contains('open');
+      closeAllDropdowns();
+      if (!isOpen) dd.classList.add('open');
+    }
+
+    function closeAllDropdowns() {
+      document.querySelectorAll('.ms-dropdown').forEach(d => d.classList.remove('open'));
+    }
+
+    function clearSingleFilter(key) {
+      selectedFilters[key] = [];
+      updateDashboard();
+    }
+
+    document.getElementById('btnResetFilters').addEventListener('click', () => {
+      filterDefs.forEach(f => selectedFilters[f.key] = []);
+      document.getElementById('tableSearch').value = '';
+      updateDashboard();
+    });
+
+    // Filtra la base de datos excluyendo una clave opcional (para recalcular opciones dependientes)
+    function filterDataExcluding(excludeKey = null) {
+      return rawData.filter(item => {
+        for (const f of filterDefs) {
+          if (f.key === excludeKey) continue;
+          const activeArr = selectedFilters[f.key];
+          if (activeArr && activeArr.length > 0) {
+            const itemVal = item[f.key] ? String(item[f.key]).trim() : '';
+            if (!activeArr.includes(itemVal)) return false;
+          }
+        }
+        return true;
+      });
+    }
+
+    function getFilteredData() {
+      return filterDataExcluding(null);
+    }
+
+    // Actualizar botones y opciones de cada filtro en cascada
+    function refreshFilterOptions() {
+      filterDefs.forEach(f => {
+        const validSubset = filterDataExcluding(f.key);
+        const counts = {};
+        validSubset.forEach(row => {
+          const val = row[f.key] ? String(row[f.key]).trim() : '(En blanco)';
+          counts[val] = (counts[val] || 0) + 1;
+        });
+
+        const sortedVals = Object.keys(counts).sort((a, b) => a.localeCompare(b));
+        const optsContainer = document.getElementById(`opts_${f.key}`);
+        optsContainer.innerHTML = '';
+
+        sortedVals.forEach(val => {
+          const isChecked = selectedFilters[f.key].includes(val);
+          const label = document.createElement('label');
+          label.className = 'flex items-center justify-between p-1 rounded hover:bg-slate-100 cursor-pointer text-xs';
+          label.innerHTML = `
+            <div class="flex items-center gap-1.5 truncate">
+              <input type="checkbox" value="${val}" ${isChecked ? 'checked' : ''} onchange="toggleFilterValue('${f.key}', '${val}')" class="rounded text-blue-600 focus:ring-0">
+              <span class="truncate ${isChecked ? 'font-bold text-blue-700' : 'text-slate-700'}">${val}</span>
+            </div>
+            <span class="text-[10px] text-slate-400 font-mono">(${counts[val]})</span>
+          `;
+          optsContainer.appendChild(label);
+        });
+
+        // Actualizar texto del botón y badges
+        const btn = document.getElementById(`btn_${f.key}`);
+        const txt = document.getElementById(`txt_${f.key}`);
+        const badge = document.getElementById(`badge_${f.key}`);
+        const activeCount = selectedFilters[f.key].length;
+
+        if (activeCount === 0) {
+          btn.classList.remove('ms-btn-active');
+          txt.innerText = 'Todos';
+          badge.classList.add('hidden');
+        } else if (activeCount === 1) {
+          btn.classList.add('ms-btn-active');
+          txt.innerText = selectedFilters[f.key][0];
+          badge.classList.remove('hidden');
+          badge.innerText = '1';
+        } else {
+          btn.classList.add('ms-btn-active');
+          txt.innerText = `${activeCount} seleccionados`;
+          badge.classList.remove('hidden');
+          badge.innerText = activeCount;
+        }
+      });
+    }
+
+    window.toggleFilterValue = function(key, val) {
+      const idx = selectedFilters[key].indexOf(val);
+      if (idx > -1) {
+        selectedFilters[key].splice(idx, 1);
+      } else {
+        selectedFilters[key].push(val);
+      }
+      updateDashboard();
+    };
+
+    // Actualizar KPIs superiores
+    function updateKPIs(data) {
+      const total = data.length;
+      document.getElementById('kpiTotal').innerText = total;
+      document.getElementById('filterCountBadge').innerText = `${total} accidentes filtrados`;
+
+      const clasifA = data.filter(d => d.clasif === 'A').length;
+      document.getElementById('kpiClasifA').innerText = clasifA;
+      document.getElementById('kpiClasifASub').innerText = total > 0 ? `${((clasifA / total) * 100).toFixed(1)}% del total` : '0%';
+
+      const clasifB = data.filter(d => d.clasif === 'B1' || d.clasif === 'D' || d.clasif === 'C').length;
+      document.getElementById('kpiClasifB').innerText = clasifB;
+
+      const t1 = data.filter(d => d.turno === '1er Turno').length;
+      document.getElementById('kpiTurno1').innerText = t1;
+
+      const validEdades = data.map(d => d.edad).filter(e => typeof e === 'number' && !isNaN(e) && e > 0);
+      const avgEdad = validEdades.length > 0 ? (validEdades.reduce((a, b) => a + b, 0) / validEdades.length).toFixed(1) : 0;
+      document.getElementById('kpiEdad').innerText = validEdades.length > 0 ? `${avgEdad} años` : 'N/D';
+
+      const manos = data.filter(d => (d.cuerpo || '').includes('MANO')).length;
+      document.getElementById('kpiManos').innerText = manos;
+    }
+
+    // Algoritmo de Pronóstico Predictivo
+    function updatePredictiveEngine(data) {
+      if (data.length === 0) {
+        document.getElementById('predArea').innerText = '-';
+        document.getElementById('predAreaSub').innerText = 'Sin registros filtrados';
+        document.getElementById('predCuerpo').innerText = '-';
+        document.getElementById('predCuerpoSub').innerText = 'Sin registros';
+        document.getElementById('predClasif').innerText = '-';
+        document.getElementById('predClasifSub').innerText = 'Sin registros';
+        document.getElementById('predTiempo').innerText = '-';
+        document.getElementById('predMecanismo').innerText = 'Mecanismo: -';
+        return;
+      }
+
+      function getTop(key) {
+        const counts = {};
+        data.forEach(d => {
+          const v = d[key] || 'No definido';
+          counts[v] = (counts[v] || 0) + 1;
+        });
+        const sorted = Object.entries(counts).sort((a, b) => b[1] - a[1]);
+        return { item: sorted[0][0], count: sorted[0][1], pct: ((sorted[0][1] / data.length) * 100).toFixed(1) };
+      }
+
+      const topArea = getTop('area');
+      document.getElementById('predArea').innerText = topArea.item;
+      document.getElementById('predAreaSub').innerHTML = `<i class="fa-solid fa-chart-simple text-amber-400"></i> Frecuencia: <strong>${topArea.pct}% (${topArea.count} casos)</strong>`;
+
+      const topCuerpo = getTop('cuerpo');
+      document.getElementById('predCuerpo').innerText = topCuerpo.item;
+      document.getElementById('predCuerpoSub').innerHTML = `<i class="fa-solid fa-crosshairs text-red-400"></i> Concentración: <strong>${topCuerpo.pct}% de lesiones</strong>`;
+
+      const topClasif = getTop('clasif');
+      document.getElementById('predClasif').innerText = `Categoría ${topClasif.item}`;
+      document.getElementById('predClasifSub').innerHTML = `<i class="fa-solid fa-tag text-sky-400"></i> Probabilidad: <strong>${topClasif.pct}%</strong>`;
+
+      const topHora = getTop('rangoHora');
+      const topMec = getTop('mecanismo');
+      document.getElementById('predTiempo').innerText = `${topHora.item}`;
+      document.getElementById('predMecanismo').innerHTML = `<i class="fa-solid fa-wrench text-emerald-400"></i> Mecanismo: <strong>${topMec.item}</strong>`;
+    }
+
+    // Renderizar Gráficas
+    function updateCharts(data) {
+      function getFrequencies(key, sortDesc = true) {
+        const c = {};
+        data.forEach(d => {
+          const v = d[key] || 'Sin dato';
+          c[v] = (c[v] || 0) + 1;
+        });
+        const entries = Object.entries(c);
+        if (sortDesc) entries.sort((a, b) => b[1] - a[1]);
+        return { labels: entries.map(e => e[0]), values: entries.map(e => e[1]) };
+      }
+
+      // 1. Tendencia por FY
+      const fyOrder = ['FY2022', 'FY2023', 'FY2024', 'FY2025', 'FY2026'];
+      const fyCounts = { FY2022: 0, FY2023: 0, FY2024: 0, FY2025: 0, FY2026: 0 };
+      data.forEach(d => { if (fyCounts[d.fy] !== undefined) fyCounts[d.fy]++; });
+      const ctxFY = document.getElementById('chartFY').getContext('2d');
+      if (chartFYInstance) chartFYInstance.destroy();
+      chartFYInstance = new Chart(ctxFY, {
+        type: 'line',
+        data: {
+          labels: fyOrder,
+          datasets: [{
+            label: 'Accidentes Registrados',
+            data: fyOrder.map(fy => fyCounts[fy]),
+            borderColor: '#2563eb',
+            backgroundColor: 'rgba(37, 99, 235, 0.1)',
+            fill: true,
+            tension: 0.35,
+            borderWidth: 3,
+            pointBackgroundColor: '#1d4ed8',
+            pointRadius: 4
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { display: false } },
+          scales: { y: { beginAtZero: true, grid: { color: '#f1f5f9' } }, x: { grid: { display: false } } }
+        }
+      });
+
+      // 2. Top Áreas
+      const areasData = getFrequencies('area', true);
+      const topAreasLabels = areasData.labels.slice(0, 8);
+      const topAreasValues = areasData.values.slice(0, 8);
+      const ctxAreas = document.getElementById('chartAreas').getContext('2d');
+      if (chartAreasInstance) chartAreasInstance.destroy();
+      chartAreasInstance = new Chart(ctxAreas, {
+        type: 'bar',
+        data: {
+          labels: topAreasLabels,
+          datasets: [{
+            label: 'Casos',
+            data: topAreasValues,
+            backgroundColor: '#ef4444',
+            borderRadius: 6
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { display: false } },
+          scales: { y: { beginAtZero: true, grid: { color: '#f1f5f9' } }, x: { grid: { display: false } } }
+        }
+      });
+
+      // 3. Partes del Cuerpo
+      const cuerpoData = getFrequencies('cuerpo', true);
+      const ctxCuerpo = document.getElementById('chartCuerpo').getContext('2d');
+      if (chartCuerpoInstance) chartCuerpoInstance.destroy();
+      chartCuerpoInstance = new Chart(ctxCuerpo, {
+        type: 'doughnut',
+        data: {
+          labels: cuerpoData.labels.slice(0, 5),
+          datasets: [{
+            data: cuerpoData.values.slice(0, 5),
+            backgroundColor: ['#8b5cf6', '#ec4899', '#3b82f6', '#10b981', '#f59e0b']
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 10 } } } }
+        }
+      });
+
+      // 4. Factores / Agentes
+      const agenteData = getFrequencies('agente', true);
+      const ctxAgentes = document.getElementById('chartAgentes').getContext('2d');
+      if (chartAgentesInstance) chartAgentesInstance.destroy();
+      chartAgentesInstance = new Chart(ctxAgentes, {
+        type: 'polarArea',
+        data: {
+          labels: agenteData.labels.slice(0, 5),
+          datasets: [{
+            data: agenteData.values.slice(0, 5),
+            backgroundColor: ['rgba(245, 158, 11, 0.7)', 'rgba(59, 130, 246, 0.7)', 'rgba(16, 185, 129, 0.7)', 'rgba(239, 68, 68, 0.7)', 'rgba(139, 92, 246, 0.7)']
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 10 } } } }
+        }
+      });
+
+      // 5. Día de la Semana
+      const diasOrder = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
+      const diasCount = { Lunes: 0, Martes: 0, Miércoles: 0, Jueves: 0, Viernes: 0, Sábado: 0, Domingo: 0 };
+      data.forEach(d => { if (diasCount[d.dia] !== undefined) diasCount[d.dia]++; });
+      const ctxDias = document.getElementById('chartDias').getContext('2d');
+      if (chartDiasInstance) chartDiasInstance.destroy();
+      chartDiasInstance = new Chart(ctxDias, {
+        type: 'bar',
+        data: {
+          labels: ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'],
+          datasets: [{
+            label: 'Accidentes',
+            data: diasOrder.map(d => diasCount[d]),
+            backgroundColor: '#06b6d4',
+            borderRadius: 5
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { display: false } },
+          scales: { y: { beginAtZero: true, grid: { color: '#f1f5f9' } }, x: { grid: { display: false } } }
+        }
+      });
+    }
+
+    // Renderizar Tabla de Eventos con Buscador y Paginado
+    function updateTable(data) {
+      const tbody = document.getElementById('eventsTableBody');
+      const searchVal = document.getElementById('tableSearch').value.toLowerCase().trim();
+      const limitVal = document.getElementById('selectPageLimit').value;
+
+      let filtered = data;
+      if (searchVal) {
+        filtered = filtered.filter(item => {
+          return Object.values(item).some(val => String(val).toLowerCase().includes(searchVal));
+        });
+      }
+
+      document.getElementById('tableRowsInfo').innerText = `Mostrando ${filtered.length} de ${data.length} eventos`;
+
+      const renderList = limitVal === 'all' ? filtered : filtered.slice(0, parseInt(limitVal));
+      tbody.innerHTML = '';
+
+      renderList.forEach(r => {
+        const tr = document.createElement('tr');
+        tr.className = 'hover:bg-slate-50 transition border-b border-slate-100';
+
+        const clasifBadge = r.clasif === 'A' 
+          ? `<span class="bg-amber-100 text-amber-800 font-bold px-1.5 py-0.5 rounded text-[10px]">A</span>`
+          : `<span class="bg-red-100 text-red-800 font-bold px-1.5 py-0.5 rounded text-[10px]">${r.clasif || '-'}</span>`;
+
+        tr.innerHTML = `
+          <td class="p-2.5 whitespace-nowrap font-medium text-slate-800">
+            <div>${r.fecha || '-'}</div>
+            <div class="text-[10px] text-slate-400 font-mono">${r.fy || '-'}</div>
+          </td>
+          <td class="p-2.5 whitespace-nowrap">
+            <div>${r.turno || '-'}</div>
+            <div class="text-[10px] text-slate-400">${r.rangoHora || '-'}</div>
+          </td>
+          <td class="p-2.5 whitespace-nowrap">
+            <div class="font-bold text-slate-700">${r.area || '-'}</div>
+            <div class="text-[10px] text-slate-400">${r.proyecto || '-'}</div>
+          </td>
+          <td class="p-2.5 text-center">${clasifBadge}</td>
+          <td class="p-2.5 font-semibold text-slate-700">${r.cuerpo || '-'}</td>
+          <td class="p-2.5">${r.mecanismo || '-'}</td>
+          <td class="p-2.5 text-[11px] text-slate-500">${r.agente || '-'}</td>
+          <td class="p-2.5 whitespace-nowrap text-slate-700">${r.ingSeguridad || '-'}</td>
+          <td class="p-2.5 whitespace-nowrap text-slate-700">${r.supervisor || '-'}</td>
+          <td class="p-2.5 text-slate-600 leading-snug">${r.desc || '-'}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    document.getElementById('tableSearch').addEventListener('input', () => {
+      updateTable(getFilteredData());
+    });
+    document.getElementById('selectPageLimit').addEventListener('change', () => {
+      updateTable(getFilteredData());
+    });
+
+    // Orquestador Principal
+    function updateDashboard() {
+      const data = getFilteredData();
+      refreshFilterOptions();
+      updateKPIs(data);
+      updatePredictiveEngine(data);
+      updateCharts(data);
+      updateTable(data);
+    }
+
+    // Inicialización del Dashboard
+    initFilters();
+    updateDashboard();
+  </script>
+</body>
+</html>
