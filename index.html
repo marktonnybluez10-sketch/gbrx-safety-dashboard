@@ -140,9 +140,6 @@
 
         <button id="btnOpenAdmin" class="hidden bg-amber-600 hover:bg-amber-500 text-white text-xs font-semibold px-3 py-2 rounded-lg shadow transition flex items-center gap-1.5">Gestionar Usuarios</button>
         <button id="btnLogout" class="bg-rose-700 hover:bg-rose-600 text-white text-xs font-semibold px-3 py-2 rounded-lg shadow transition flex items-center gap-1.5">Salir</button>
-
-        <button id="btnOpenAdmin" class="hidden bg-amber-600 hover:bg-amber-500 text-white text-xs font-semibold px-3 py-2 rounded-lg shadow transition flex items-center gap-1.5">Gestionar Usuarios</button>
-        <button id="btnLogout" class="bg-rose-700 hover:bg-rose-600 text-white text-xs font-semibold px-3 py-2 rounded-lg shadow transition flex items-center gap-1.5">Salir</button>
       </div>
     </div>
   </header>
@@ -930,104 +927,6 @@
     adminBtns.forEach(btn => btn.classList.add('hidden'));
   }
 }
-
-    document.getElementById('loginForm')?.addEventListener('submit', (e) => {
-      e.preventDefault();
-      const u = document.getElementById('loginUsername').value.trim();
-      const p = document.getElementById('loginPassword').value;
-      const match = getStoredUsers().find(x => x.username.toLowerCase() === u.toLowerCase() && x.password === p);
-      if (match) {
-        sessionStorage.setItem(STORAGE_SESSION_KEY, JSON.stringify({ username: match.username, role: match.role }));
-        document.getElementById('loginErrorMsg').classList.add('hidden');
-        checkSession();
-      } else {
-        document.getElementById('loginErrorMsg').classList.remove('hidden');
-      }
-    });
-
-    document.getElementById('btnLogout')?.addEventListener('click', () => {
-      sessionStorage.removeItem(STORAGE_SESSION_KEY);
-      location.reload();
-    });
-
-    document.getElementById('btnOpenAdmin')?.addEventListener('click', () => {
-      renderUserTable();
-      document.getElementById('adminModal')?.classList.remove('hidden');
-    });
-
-    document.getElementById('btnCloseAdminModal')?.addEventListener('click', () => {
-      document.getElementById('adminModal')?.classList.add('hidden');
-    });
-
-    document.getElementById('addUserForm')?.addEventListener('submit', (e) => {
-      e.preventDefault();
-      const u = document.getElementById('newUsername').value.trim();
-      const p = document.getElementById('newPassword').value.trim();
-      const users = getStoredUsers();
-      if (users.some(x => x.username.toLowerCase() === u.toLowerCase())) return alert('El usuario ya existe');
-      users.push({ username: u, password: p, role: 'viewer' });
-      saveStoredUsers(users);
-      renderUserTable();
-      document.getElementById('addUserForm').reset();
-    });
-
-    checkSession();
-  </script>
-
-  <script>
-    const STORAGE_USERS_KEY = 'gbrx_auth_users';
-    const STORAGE_SESSION_KEY = 'gbrx_active_session';
-    const defaultAdmin = { username: "admin", password: "Admin2026*", role: "admin" };
-
-    function getStoredUsers() {
-      const raw = localStorage.getItem(STORAGE_USERS_KEY);
-      if (!raw) {
-        const list = [defaultAdmin];
-        localStorage.setItem(STORAGE_USERS_KEY, JSON.stringify(list));
-        return list;
-      }
-      return JSON.parse(raw);
-    }
-    function saveStoredUsers(u) { localStorage.setItem(STORAGE_USERS_KEY, JSON.stringify(u)); }
-    function getCurrentSession() { return JSON.parse(sessionStorage.getItem(STORAGE_SESSION_KEY)); }
-
-    function renderUserTable() {
-      const users = getStoredUsers();
-      const tbody = document.getElementById('userListBody');
-      if (!tbody) return;
-      tbody.innerHTML = '';
-      users.forEach(u => {
-        const tr = document.createElement('tr');
-        tr.innerHTML = `<td class="py-2 px-3 text-slate-200 font-semibold">${u.username}</td>
-          <td class="py-2 px-3"><span class="px-2 py-0.5 rounded text-[10px] ${u.role === 'admin' ? 'bg-amber-500/20 text-amber-300' : 'bg-slate-700 text-slate-300'}">${u.role.toUpperCase()}</span></td>
-          <td class="py-2 px-3 text-right">${u.username !== 'admin' ? `<button onclick="deleteUser('${u.username}')" class="text-rose-400 hover:underline">Eliminar</button>` : '<span class="text-slate-500">Principal</span>'}</td>`;
-        tbody.appendChild(tr);
-      });
-    }
-
-    window.deleteUser = function(username) {
-      if (confirm('¿Eliminar acceso a ' + username + '?')) {
-        saveStoredUsers(getStoredUsers().filter(u => u.username !== username));
-        renderUserTable();
-      }
-    };
-
-    function checkSession() {
-      const session = getCurrentSession();
-      const overlay = document.getElementById('authGateOverlay');
-      const adminBtn = document.getElementById('btnOpenAdmin');
-      if (session) {
-        if (overlay) overlay.classList.add('hidden');
-        if (adminBtn) adminBtn.classList.toggle('hidden', session.role !== 'admin');
-        setTimeout(() => {
-          window.dispatchEvent(new Event('resize'));
-          if (typeof handleFilterChange === 'function') handleFilterChange();
-        }, 150);
-      } else {
-        if (overlay) overlay.classList.remove('hidden');
-        if (adminBtn) adminBtn.classList.add('hidden');
-      }
-    }
 
     document.getElementById('loginForm')?.addEventListener('submit', (e) => {
       e.preventDefault();
