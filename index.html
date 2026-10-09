@@ -8,6 +8,8 @@
   <!-- Tailwind CSS, Chart.js, FontAwesome -->
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 
@@ -870,75 +872,140 @@
   </script>
 
   <script>
-    const STORAGE_USERS_KEY = 'gbrx_auth_users';
+    // ================= CONFIGURACIÓN DE FIREBASE GBRX =================
+    const firebaseConfig = {
+      apiKey: "AIzaSyCTMMjPHMlo0sWI6S7-eqZS0BCCSKt0E1o",
+      authDomain: "gbrx-dashboard-seguridad.firebaseapp.com",
+      projectId: "gbrx-dashboard-seguridad",
+      storageBucket: "gbrx-dashboard-seguridad.firebasestorage.app",
+      messagingSenderId: "731035352909",
+      appId: "1:731035352909:web:6eea020cd870773c5f4104"
+    };
+
+    // Inicializar Firebase y la base de datos Firestore
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+    const usersCollection = db.collection('usuarios_gbrx');
+
     const STORAGE_SESSION_KEY = 'gbrx_active_session';
-    const defaultAdmin = { username: "admin", password: "Admin2026*", role: "admin" };
 
-    function getStoredUsers() {
-      const raw = localStorage.getItem(STORAGE_USERS_KEY);
-      if (!raw) {
-        const list = [defaultAdmin];
-        localStorage.setItem(STORAGE_USERS_KEY, JSON.stringify(list));
-        return list;
+    // Administrador maestro predeterminado
+    const defaultAdmin = {
+      username: "admin",
+      password: "Admin2026*",
+      role: "admin"
+    };
+
+    // Asegurar que el usuario 'admin' exista en la nube la primera vez
+    async function initCloudAdmin() {
+      try {
+        const doc = await usersCollection.doc('admin').get();
+        if (!doc.exists) {
+          await usersCollection.doc('admin').set(defaultAdmin);
+        }
+      } catch (err) {
+        console.error("Error al inicializar admin en Firebase:", err);
       }
-      return JSON.parse(raw);
     }
-    function saveStoredUsers(u) { localStorage.setItem(STORAGE_USERS_KEY, JSON.stringify(u)); }
-    function getCurrentSession() { return JSON.parse(sessionStorage.getItem(STORAGE_SESSION_KEY)); }
+    initCloudAdmin();
 
-    function renderUserTable() {
-      const users = getStoredUsers();
+    function getCurrentSession() {
+      return JSON.parse(sessionStorage.getItem(STORAGE_SESSION_KEY));
+    }
+
+    // Renderizar la tabla de usuarios trayendo la lista en tiempo real desde Firebase
+    async function renderUserTable() {
       const tbody = document.getElementById('userListBody');
       if (!tbody) return;
-      tbody.innerHTML = '';
-      users.forEach(u => {
-        const tr = document.createElement('tr');
-        tr.innerHTML = `<td class="py-2 px-3 text-slate-200 font-semibold">${u.username}</td>
-          <td class="py-2 px-3"><span class="px-2 py-0.5 rounded text-[10px] ${u.role === 'admin' ? 'bg-amber-500/20 text-amber-300' : 'bg-slate-700 text-slate-300'}">${u.role.toUpperCase()}</span></td>
-          <td class="py-2 px-3 text-right">${u.username !== 'admin' ? `<button onclick="deleteUser('${u.username}')" class="text-rose-400 hover:underline">Eliminar</button>` : '<span class="text-slate-500">Principal</span>'}</td>`;
-        tbody.appendChild(tr);
-      });
+      tbody.innerHTML = '<tr><td colspan="3" class="py-3 px-3 text-center text-slate-400">Cargando usuarios desde la nube...</td></tr>';
+
+      try {
+        const snapshot = await usersCollection.get();
+        tbody.innerHTML = '';
+        
+        snapshot.forEach(doc => {
+          const u = doc.data();
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td class="py-2.5 px-3 font-semibold text-slate-200">${u.username}</td>
+            <td class="py-2.5 px-3">
+              <span class="px-2 py-0.5 rounded text-[10px] font-bold ${u.role === 'admin' ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' : 'bg-slate-700 text-slate-300'}">
+                ${u.role.toUpperCase()}
+              </span>
+            </td>
+            <td class="py-2.5 px-3 text-right">
+              ${u.username !== 'admin' ? `
+                <button onclick="deleteUser('${doc.id}')" class="text-rose-400 hover:text-rose-300 transition text-xs">
+                  <i class="fa-solid fa-trash-can mr-1"></i> Eliminar
+                </button>
+              ` : '<span class="text-slate-500 text-[11px]">Principal</span>'}
+            </td>
+          `;
+          tbody.appendChild(tr);
+        });
+      } catch (err) {
+        tbody.innerHTML = '<tr><td colspan="3" class="py-3 px-3 text-center text-red-400">Error al consultar la base de datos en la nube.</td></tr>';
+      }
     }
 
-    window.deleteUser = function(username) {
-      if (confirm('¿Eliminar acceso a ' + username + '?')) {
-        saveStoredUsers(getStoredUsers().filter(u => u.username !== username));
-        renderUserTable();
+    // Eliminar usuario en la nube
+    window.deleteUser = async function(docId) {
+      if (confirm(`¿Deseas revocar el acceso a este usuario en todos los dispositivos?`)) {
+        try {
+          await usersCollection.doc(docId).delete();
+          renderUserTable();
+        } catch (err) {
+          alert("Error al eliminar usuario en la nube.");
+        }
       }
     };
 
     function checkSession() {
-  const session = getCurrentSession();
-  const overlays = document.querySelectorAll('#authGateOverlay');
-  const adminBtns = document.querySelectorAll('#btnOpenAdmin');
+      const session = getCurrentSession();
+      const overlay = document.getElementById('authGateOverlay');
+      const adminBtn = document.getElementById('btnOpenAdmin');
 
-  if (session) {
-    overlays.forEach(el => el.classList.add('hidden'));
-    adminBtns.forEach(btn => btn.classList.toggle('hidden', session.role !== 'admin'));
+      if (session) {
+        if (overlay) overlay.classList.add('hidden');
+        if (adminBtn) adminBtn.classList.toggle('hidden', session.role !== 'admin');
 
-    setTimeout(() => {
-      window.dispatchEvent(new Event('resize'));
-      if (typeof handleFilterChange === 'function') {
-        handleFilterChange();
-      }
-    }, 150);
-  } else {
-    overlays.forEach(el => el.classList.remove('hidden'));
-    adminBtns.forEach(btn => btn.classList.add('hidden'));
-  }
-}
-
-    document.getElementById('loginForm')?.addEventListener('submit', (e) => {
-      e.preventDefault();
-      const u = document.getElementById('loginUsername').value.trim();
-      const p = document.getElementById('loginPassword').value;
-      const match = getStoredUsers().find(x => x.username.toLowerCase() === u.toLowerCase() && x.password === p);
-      if (match) {
-        sessionStorage.setItem(STORAGE_SESSION_KEY, JSON.stringify({ username: match.username, role: match.role }));
-        document.getElementById('loginErrorMsg').classList.add('hidden');
-        checkSession();
+        setTimeout(() => {
+          window.dispatchEvent(new Event('resize'));
+          if (typeof handleFilterChange === 'function') handleFilterChange();
+        }, 150);
       } else {
-        document.getElementById('loginErrorMsg').classList.remove('hidden');
+        if (overlay) overlay.classList.remove('hidden');
+        if (adminBtn) adminBtn.classList.add('hidden');
+      }
+    }
+
+    // Iniciar sesión validando directamente contra Firebase
+    document.getElementById('loginForm')?.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const userIn = document.getElementById('loginUsername').value.trim();
+      const passIn = document.getElementById('loginPassword').value;
+      const errorMsg = document.getElementById('loginErrorMsg');
+      const submitBtn = e.target.querySelector('button[type="submit"]');
+
+      submitBtn.disabled = true;
+      submitBtn.innerText = "Verificando...";
+
+      try {
+        const querySnapshot = await usersCollection.where("username", "==", userIn).where("password", "==", passIn).get();
+
+        if (!querySnapshot.empty) {
+          const userData = querySnapshot.docs[0].data();
+          sessionStorage.setItem(STORAGE_SESSION_KEY, JSON.stringify({ username: userData.username, role: userData.role }));
+          if (errorMsg) errorMsg.classList.add('hidden');
+          checkSession();
+        } else {
+          if (errorMsg) errorMsg.classList.remove('hidden');
+        }
+      } catch (err) {
+        alert("Error de conexión al validar credenciales.");
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.innerText = "Iniciar Sesión";
       }
     });
 
@@ -956,18 +1023,37 @@
       document.getElementById('adminModal')?.classList.add('hidden');
     });
 
-    document.getElementById('addUserForm')?.addEventListener('submit', (e) => {
+    // Guardar nuevo usuario directamente en Firebase
+    document.getElementById('addUserForm')?.addEventListener('submit', async (e) => {
       e.preventDefault();
-      const u = document.getElementById('newUsername').value.trim();
-      const p = document.getElementById('newPassword').value.trim();
-      const users = getStoredUsers();
-      if (users.some(x => x.username.toLowerCase() === u.toLowerCase())) return alert('El usuario ya existe');
-      users.push({ username: u, password: p, role: 'viewer' });
-      saveStoredUsers(users);
-      renderUserTable();
-      document.getElementById('addUserForm').reset();
+      const uName = document.getElementById('newUsername').value.trim();
+      const pWord = document.getElementById('newPassword').value.trim();
+
+      if (!uName || !pWord) return;
+
+      try {
+        const docRef = usersCollection.doc(uName.toLowerCase());
+        const existing = await docRef.get();
+
+        if (existing.exists) {
+          alert("Ese nombre de usuario ya existe en el sistema.");
+          return;
+        }
+
+        await docRef.set({
+          username: uName,
+          password: pWord,
+          role: 'viewer'
+        });
+
+        renderUserTable();
+        document.getElementById('addUserForm').reset();
+      } catch (err) {
+        alert("Error al guardar el nuevo usuario en Firebase.");
+      }
     });
 
+    // Verificación inicial de sesión
     checkSession();
   </script>
 </body>
