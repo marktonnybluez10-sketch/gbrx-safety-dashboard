@@ -120,7 +120,7 @@
               <span class="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-pulse"></span> 15 FILTROS MÚLTIPLES DEPENDIENTES
             </span>
           </div>
-          <p class="text-xs text-slate-400">Analítica Predictiva Multianual y Gestión Proactiva de Accidentabilidad (FY2022 - FY2026)</p>
+          <p class="text-xs text-slate-400">Analítica Predictiva Multianual y Gestión Proactiva de Accidentabilidad (FY2022 - FY2027)</p>
         </div>
       </div>
 
@@ -680,7 +680,7 @@
     // Actualizar Gráficas
     function updateCharts(data) {
       // 1. Tendencia por FY
-      const fyOrder = ["FY2022", "FY2023", "FY2024", "FY2025", "FY2026"];
+      const fyOrder = ["FY2022", "FY2023", "FY2024", "FY2025", "FY2026", "FY2027"];
       const fyCounts = {};
       fyOrder.forEach(f => fyCounts[f] = 0);
       data.forEach(d => { if (fyCounts[d.fy] !== undefined) fyCounts[d.fy]++; });
